@@ -50,7 +50,6 @@ class PlayerStats:
         else:
             print("Successfully created the directory %s" % time_path)
 
-
     def query_chess_site(self):
         """ Uses requests.get() to chess.com to return their json archives """
         
@@ -58,7 +57,6 @@ class PlayerStats:
         self._archives = requests.get(self._query).json()
         
     def query_archive_chess_site(self, month_url):
-        
         """ Loop through the result to get a list of the games """
         monthly_games = requests.get(month_url).json()
 
@@ -67,12 +65,14 @@ class PlayerStats:
             print(game_instance.chessgame_to_list())
 
     def get_archive_url(self):
-        return self._archives['archives'][0]
+        """ Get Function """
+        return self._archives['archives'][110]
 
 class Chessgame:
     """ An instance of a single game with relevant information """
     
     def __init__(self, game_json):
+        """ Initializes the Chessgame object with all the relevant information by getting the raw JSON file from PlayerStats class"""
         self._game_json = game_json
         self._fmt = "%Y.%m.%d %H:%M:%S"
         self._tz = timezone("US/Pacific")
@@ -87,25 +87,31 @@ class Chessgame:
         self._eco_name = self.format_eco_name()
         self._date = self.format_date()
         self._time = self.format_time()
+        self._white_bool = self.format_white_bool()
+        self._black_bool = self.format_black_bool()
+        self._formatted_pgn = self.format_pgn_score()
         self._time_control = game_json['time_control']
         self._rules = game_json['rules']
     
 
     def format_eco(self):
-        
+        """ Grabs the relevant eco_code from the pgn string """
         eco1 = re.sub("\W", "", self.get_chessgame_pgn().split('\n')[9].split(" ")[1])
         return eco1
 
     def format_eco_name(self):
+        """ Grabs the eco name from the pgn string"""
         try:
             eco2 = self.get_chessgame_pgn().split('\n')[10].split("/")[4].split("]")[0]
             eco3 = eco2[:-1]
             eco_name = eco3
         except:
             eco_name = None
+        
         return eco_name
 
     def format_date(self):
+        """ Get date into correct format """
         date1 = self.get_chessgame_pgn().split('\n')[2].split(" ")[1]
         date1 = date1[:-2]
         date1 = date1[1:]
@@ -123,11 +129,40 @@ class Chessgame:
         else:
             return None
 
+    def format_white_bool(self):
+        """ Returns the (almost) Boelean result for white from the chessgame"""
+        if self._white_result == "win": return 1
+        elif self._white_result in {"resigned", "timeout", "checkmated", "abandoned"}: return 0
+        else: return 0.5
+
+    def format_black_bool(self):
+        """ Returns the (almost) Boolean result for black from the chessgame"""
+        if self._black_result == "win": return 1
+        elif self._black_result in {"resigned", "timeout", "checkmated", "abandoned"}: return 0
+        else: return 0.5
+
+    def format_pgn_score(self):
+        """ Parses the PGN to be readable for SQL queries """
+        count = 1
+        pgn_list = ""
+        
+        for elem in self.get_chessgame_pgn().split("\n")[22].split(" "):
+            if count == 1:
+                pgn_list = pgn_list + elem + " "
+            elif count == 2:
+                pgn_list = pgn_list + elem + " "
+            elif count == 3:
+                pass
+            else: 
+                count = 0
+            count +=1
+        return pgn_list
+
     def get_chessgame_pgn(self):
         return self._pgn
 
     def chessgame_to_list(self):
-        return [self._white_name, self._white_rating, self._white_result, self._black_name, self._black_rating, self._black_result, self._eco_code, self._eco_name, self._date, self._time, self._time_control]
+        return [self._white_name, self._white_rating, self._white_result, self._white_bool, self._black_name, self._black_rating, self._black_result, self._black_bool, self._eco_code, self._eco_name, self._date, self._time, self._time_control, self._formatted_pgn]
 
 if __name__ == "__main__":
     
