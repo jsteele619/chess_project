@@ -176,8 +176,35 @@ class Chessgame:
         return [self._white_name, self._white_rating, self._white_result, self._white_bool, self._black_name, self._black_rating, self._black_result, self._black_bool, self._eco_code, self._eco_name, self._date, self._time, self._time_control, self._formatted_pgn]
 
 
-        
+class Sql_info:
+    def __init__(self, username, chessgame_object):
+        """ """
+        self._username = username
+        self._db_url = 'postgresql://' + login + '@localhost:5432/chess_db'
+        self._engine = create_engine(self._db_url)
+        self._connection = self._engine.connect()
 
+        create_table = (f"CREATE TABLE IF NOT EXISTS {username} ( \
+	    date date, \
+	    time varchar(40), \
+	    time_control varchar(10), \
+	    white_name varchar(40), \
+	    white_rating int, \
+	    white_result varchar(40), \
+	    white_bool float, \
+	    black_name varchar(40), \
+	    black_rating int, \
+	    black_result varchar(40), \
+	    black_bool float, \
+	    eco_code varchar(10), \
+	    eco_name varchar(250), \
+	    pgn_score varchar(5000), \
+	    pgn_string varchar(5000), \
+	    url varchar(750));")
+
+        create_sql = self._engine.execute(create_table)
+
+        
 
 
 if __name__ == "__main__":
