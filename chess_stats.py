@@ -5,6 +5,9 @@
 import json
 import os
 import requests
+import sqlalchemy
+from sqlalchemy import create_engine
+from config import login
 import re
 from datetime import datetime 
 from datetime import time
@@ -19,6 +22,21 @@ class PlayerStats:
         self._name = name
         self._url = "https://api.chess.com/pub/player/"
         self._total_games = []
+
+
+    def query_chess_site(self):
+        """ Uses requests.get() to chess.com to return their json archives """
+        
+        self._query = f"{self._url}{self._name}/games/archives"
+        self._archives = requests.get(self._query).json()
+        
+    def query_archive_chess_site(self, month_url: object):
+        """ Loop through the result to get a list of the games """
+        monthly_games = requests.get(month_url).json()
+
+        for game in monthly_games['games']:
+            game_instance = Chessgame(game)
+            print(game_instance.chessgame_to_list())
 
     def create_directories(self):
         """ Functions that creates folders if they dont already exist """
@@ -50,23 +68,16 @@ class PlayerStats:
         else:
             print("Successfully created the directory %s" % time_path)
 
-    def query_chess_site(self):
-        """ Uses requests.get() to chess.com to return their json archives """
-        
-        self._query = f"{self._url}{self._name}/games/archives"
-        self._archives = requests.get(self._query).json()
-        
-    def query_archive_chess_site(self, month_url):
-        """ Loop through the result to get a list of the games """
-        monthly_games = requests.get(month_url).json()
-
-        for game in monthly_games['games']:
-            game_instance = Chessgame(game)
-            print(game_instance.chessgame_to_list())
-
     def get_archive_url(self):
         """ Get Function """
         return self._archives['archives'][110]
+
+
+    def sql_db_creation(self):
+        db_url = 'postgresql://' + login + '@localhost:5432/chess_db'
+        engine = create_engine(db_url)
+        connection = engine.connect()
+
 
 class Chessgame:
     """ An instance of a single game with relevant information """
@@ -100,7 +111,7 @@ class Chessgame:
         return eco1
 
     def format_eco_name(self):
-        """ Grabs the eco name from the pgn string"""
+        """ Grabs the eco name from the pgn string """
         try:
             eco2 = self.get_chessgame_pgn().split('\n')[10].split("/")[4].split("]")[0]
             eco3 = eco2[:-1]
@@ -163,6 +174,11 @@ class Chessgame:
 
     def chessgame_to_list(self):
         return [self._white_name, self._white_rating, self._white_result, self._white_bool, self._black_name, self._black_rating, self._black_result, self._black_bool, self._eco_code, self._eco_name, self._date, self._time, self._time_control, self._formatted_pgn]
+
+
+        
+
+
 
 if __name__ == "__main__":
     
