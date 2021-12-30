@@ -28,8 +28,14 @@ class PlayerStats:
         
         self._query = f"{self._url}{self._name}/games/archives"
         self._archives = requests.get(self._query).json()
-        
-    def query_archive_chess_site(self, month_url: object):
+        #print(self._archives)
+        self.query_entire_archives()
+    
+    def query_entire_archives(self):
+        for archive in self._archives['archives']:
+            self.query_month_chess_site(archive)
+
+    def query_month_chess_site(self, month_url: object):
         """ Loop through the result to get a list of the games """
         monthly_games = requests.get(month_url).json()
         monthly_class = Monthly_Dictionary()
@@ -38,17 +44,15 @@ class PlayerStats:
 
         for game in monthly_games['games']:
             game_instance = Chessgame(game)
-            dic = game_instance.chessgame_to_dict()
-            print(dic)
+            game_dict = game_instance.chessgame_to_dict()
+            monthly_class.append_to_list(game_dict)
 
-            monthly_class.append_to_list(dic)
+        month_dataframe = monthly_class.create_pandas_dataframe()
+        sql_time.insert_table_to_sql(month_dataframe)
 
-        y = monthly_class.create_pandas_dataframe()
-        sql_time.insert_table_to_sql(y)
-
-    def get_archive_url(self):
+    def get_archive_url(self, index):
         """ Get Function """
-        return self._archives['archives'][10]
+        return self._archives['archives']
 
 
     def create_directories(self):
@@ -176,14 +180,15 @@ class Chessgame:
 
     def chessgame_to_dict(self):
         """ Creates a dictionary object of information to load into the Pandas Dataframe"""
-        
-        pandas_dict = {"date": self._date, "time": self._time, "time_control": self._time_control, "white_name": self._white_name, "white_rating": self._white_rating, "white_bool": self._white_bool, "black_name": self._black_name, "black_rating": self._black_rating, "black_bool": self._black_bool, "eco_code": self._eco_code, "eco_name": self._eco_name, "pgn_score": self._formatted_pgn}
-        
+
+        pandas_dict = {"date": self._date, "time": self._time, "time_control": self._time_control, "white_name": self._white_name, "white_rating": self._white_rating, \
+        "white_bool": self._white_bool, "black_name": self._black_name, "black_rating": self._black_rating, "black_bool": self._black_bool, "eco_code": self._eco_code, \
+        "eco_name": self._eco_name, "pgn_score": self._formatted_pgn}
+
         return pandas_dict
 
 class Monthly_Dictionary:
     def __init__(self):
-        #self._dataframe = pd.DataFrame(data=None, columns=["date", "time", "time_control", "white_name", "white_rating", "white_bool", "black_name", "black_rating", "black_bool", "eco_code", "eco_name", "pgn_score"])
         self._list_of_dict = []
 
     def append_to_list(self, pandas_dictionary):
@@ -192,8 +197,8 @@ class Monthly_Dictionary:
 
     def create_pandas_dataframe(self):
         """ Creates the Pandas DataFrame object at the end of the month """
-        df = pd.DataFrame(self._list_of_dict)
-        return df
+        monthly_return_dictionary = pd.DataFrame(self._list_of_dict)
+        return monthly_return_dictionary
 
 class Sql_Info:
     def __init__(self, username):
@@ -204,36 +209,32 @@ class Sql_Info:
         
     def insert_table_to_sql(self, pandas_table):
         """ Function that receives a Pandas DataFrame and inserts it into SQL """
-        
         self._connection = self._engine.connect()
         self._pandas_table = pandas_table
-        self._pandas_table = self._pandas_table.set_index('date')
-        
-        # query = f"INSERT INTO {self._username} (date, time, time_control, white_name, white_rating, white_bool, black_name, black_rating, black_bool, eco_code, eco_name, pgn_score) VALUES {self._pandas_table}"
-        
+        self._pandas_table = self._pandas_table.set_index('date') 
         self._pandas_table.to_sql(self._username, self._engine, if_exists='append')
         self._connection.close()
 
-    
     def check_to_create_table(self):
         """ Creates the table for the player """
         self._connection = self._engine.connect()
         create_table = (f"CREATE TABLE IF NOT EXISTS {self._username} ( \
 	    date date, \
 	    time varchar(40), \
-	    time_control varchar(10), \
-	    white_name varchar(40), \
+	    time_control varchar(20), \
+	    white_name varchar(70), \
 	    white_rating int, \
 	    white_bool float, \
-	    black_name varchar(40), \
+	    black_name varchar(70), \
 	    black_rating int, \
 	    black_bool float, \
-	    eco_code varchar(10), \
+	    eco_code varchar(100), \
 	    eco_name varchar(250), \
 	    pgn_score varchar(5000));")
 
         self._engine.execute(create_table)
         self._connection.close()
+
 
 if __name__ == "__main__":
     
@@ -241,5 +242,5 @@ if __name__ == "__main__":
     name_time = input()
     x = PlayerStats(name_time)
     x.query_chess_site()
-    x.query_archive_chess_site(x.get_archive_url())
+
 
