@@ -21,17 +21,24 @@ class PlayerStats:
     def __init__(self, name):
         self._name = name
         self._url = "https://api.chess.com/pub/player/"
-        self._total_games = []
+        self._sql_info = Sql_Info(self._name)
+        self._archives = self.query_chess_site()
+
+        if self._sql_info is True:                                              # A player table exists already
+            self._last_record = self._sql_info.search_for_last_record_date()
+
+        else:
+            self._sql_info.create_table()
+            self.query_entire_archives()
 
     def query_chess_site(self):
         """ Uses requests.get() to chess.com to return their json archives """
-        
         self._query = f"{self._url}{self._name}/games/archives"
-        self._archives = requests.get(self._query).json()
-        #print(self._archives)
-        self.query_entire_archives()
-    
+        archives = requests.get(self._query).json()
+        return archives 
+
     def query_entire_archives(self):
+        """ For each month in the chess.com, query for the record"""
         for archive in self._archives['archives']:
             self.query_month_chess_site(archive)
 
@@ -39,21 +46,30 @@ class PlayerStats:
         """ Loop through the result to get a list of the games """
         monthly_games = requests.get(month_url).json()
         monthly_class = Monthly_Dictionary()
-        sql_time = Sql_Info(self._name)
-        sql_time.check_to_create_table()
-
+       
+        """ NEEDS WORK ! """
+        
+    def query_individual_game(self):
+        
+        """ NEEDS WORK !! """
         for game in monthly_games['games']:
             game_instance = Chessgame(game)
             game_dict = game_instance.chessgame_to_dict()
             monthly_class.append_to_list(game_dict)
 
         month_dataframe = monthly_class.create_pandas_dataframe()
-        sql_time.insert_table_to_sql(month_dataframe)
+        self._sql_info.insert_table_to_sql(month_dataframe)
+
+    def create_generator_function(self, last_record):
+        """ Function that identifies the last record from the sql to the json, to continue our loop from there """
+        for nested in self._archives['archives']:
+            pass
+
+        """ NEEDS WORK !! """
 
     def get_archive_url(self, index):
         """ Get Function """
         return self._archives['archives']
-
 
     def create_directories(self):
         """ Functions that creates folders if they dont already exist """
@@ -215,7 +231,17 @@ class Sql_Info:
         self._pandas_table.to_sql(self._username, self._engine, if_exists='append')
         self._connection.close()
 
-    def check_to_create_table(self):
+    def search_for_last_record_date(self):
+        """ Searches the SQL database for the last record """
+        query = (f"select * from {self._username} order by date desc, time desc limit 1")
+        return query
+
+    def check_if_table_exists(self):
+        """ Boolean Query to see if table exists already """
+        boolean_table_query = (f'select exists(select * from {self._username} limit 1)')
+        return boolean_table_query
+    
+    def create_table(self):
         """ Creates the table for the player """
         self._connection = self._engine.connect()
         create_table = (f"CREATE TABLE IF NOT EXISTS {self._username} ( \
@@ -242,5 +268,6 @@ if __name__ == "__main__":
     name_time = input()
     x = PlayerStats(name_time)
     x.query_chess_site()
+    x.query_entire_archives()
 
 
